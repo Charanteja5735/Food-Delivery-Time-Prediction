@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeliTrack – Food Delivery Time Prediction</title>
+<meta name="description" content="AI-powered food delivery time prediction using real-time distance and traffic data.">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1319;--fg:#d4e8dc;--card:rgba(17,21,28,0.6);
+  --primary:#00ff88;--primary-dark:#00cc6a;--accent:#a855f7;
+  --secondary:#1a2030;--muted:#6b7f8a;--border:rgba(40,55,70,0.5);
+  --radius:0.75rem;
+}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;overflow-x:hidden}
+canvas#particles{position:fixed;inset:0;pointer-events:none;z-index:0}
+.glow-tl{position:fixed;top:-15%;left:-8%;width:500px;height:500px;background:rgba(0,255,136,0.04);border-radius:50%;filter:blur(120px);pointer-events:none}
+.glow-br{position:fixed;bottom:-15%;right:-8%;width:500px;height:500px;background:rgba(168,85,247,0.04);border-radius:50%;filter:blur(120px);pointer-events:none}
+.container{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:48px 16px}
+header{text-align:center;margin-bottom:48px}
+header h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:900;color:var(--fg)}
+header h1 span{color:var(--primary);text-shadow:0 0 12px rgba(0,255,136,0.5),0 0 40px rgba(0,255,136,0.15)}
+header .icons{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px;font-size:1.8rem}
+header p{color:var(--muted);font-size:1.05rem;max-width:480px;margin:8px auto 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
+@media(max-width:768px){.grid{grid-template-columns:1fr}}
+.glass{background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 0 15px rgba(0,255,136,0.08),inset 0 0 15px rgba(0,255,136,0.03)}
+.form-card{padding:32px}
+.form-card .card-header{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.card-header .icon-box{width:40px;height:40px;border-radius:12px;background:rgba(0,255,136,0.1);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.card-header h2{font-size:1.2rem;font-weight:700}
+.field{margin-bottom:20px}
+.field label{display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--muted);margin-bottom:8px}
+.field label .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dot-green{background:var(--primary)}
+.dot-purple{background:var(--accent)}
+input[type="text"]{width:100%;height:48px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--radius);padding:0 16px;color:var(--fg);font-size:0.95rem;outline:none;transition:border .2s}
+input[type="text"]:focus{border-color:rgba(0,255,136,0.4)}
+input[type="text"]::placeholder{color:rgba(107,127,138,0.6)}
+.range-label{display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--muted);margin-bottom:8px}
+.range-label .val{color:var(--primary);font-weight:700;text-shadow:0 0 8px rgba(0,255,136,0.3)}
+input[type="range"]{-webkit-appearance:none;width:100%;height:8px;border-radius:8px;background:var(--secondary);outline:none;cursor:pointer}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--primary);box-shadow:0 0 8px rgba(0,255,136,0.4);cursor:pointer}
+.range-bounds{display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);margin-top:6px}
+.traffic-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.traffic-btn{background:var(--secondary);border:1px solid var(--border);border-radius:var(--radius);padding:12px 8px;text-align:center;cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--muted);transition:all .25s}
+.traffic-btn .emoji{display:block;font-size:1.3rem;margin-bottom:4px}
+.traffic-btn.active{background:rgba(0,255,136,0.1);border-color:rgba(0,255,136,0.4);color:var(--primary);box-shadow:0 0 10px rgba(0,255,136,0.15)}
+.predict-btn{width:100%;height:56px;background:var(--primary);color:var(--bg);font-size:1.1rem;font-weight:800;border:none;border-radius:var(--radius);cursor:pointer;transition:all .25s;box-shadow:0 0 10px rgba(0,255,136,0.25);margin-top:8px}
+.predict-btn:hover{background:var(--primary-dark)}
+.predict-btn:disabled{opacity:.4;cursor:not-allowed}
+.predict-btn .spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(15,19,25,0.3);border-top-color:var(--bg);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.placeholder-card{padding:32px;text-align:center}
+.placeholder-card .float-emoji{font-size:3.5rem;animation:floaty 3s ease-in-out infinite}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.placeholder-card h3{font-size:1.1rem;font-weight:700;margin:16px 0 8px}
+.placeholder-card p{font-size:0.85rem;color:var(--muted)}
+.placeholder-card .powered{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;font-size:0.75rem;color:var(--muted)}
+.powered .pulse{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:pulse-anim 2s infinite}
+@keyframes pulse-anim{0%,100%{opacity:1}50%{opacity:.3}}
+.result-card{padding:32px;text-align:center;animation:fadeUp .5s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.result-card .big-num{font-size:4.5rem;font-weight:900;color:var(--primary);text-shadow:0 0 15px rgba(0,255,136,0.5),0 0 50px rgba(0,255,136,0.15);position:relative;display:inline-block}
+.result-card .big-num::after{content:'';position:absolute;inset:-16px;background:rgba(0,255,136,0.04);border-radius:50%;filter:blur(20px);z-index:-1}
+.result-card .unit{font-size:1.4rem;color:var(--muted);margin-left:8px}
+.result-card .subtitle{font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:3px;margin-bottom:8px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}
+.stat-item{background:rgba(26,32,48,0.5);border:1px solid rgba(40,55,70,0.3);border-radius:var(--radius);padding:14px;text-align:left}
+.stat-item .stat-label{font-size:0.7rem;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.stat-item .stat-value{font-size:1.1rem;font-weight:700;color:var(--fg)}
+.progress-bar-wrap{margin-top:24px}
+.progress-labels{display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);margin-bottom:8px}
+.progress-track{height:8px;background:var(--secondary);border-radius:8px;overflow:hidden}
+.progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--primary),var(--accent),var(--primary));border-radius:8px;animation:fillBar 2s ease forwards}
+@keyframes fillBar{to{width:100%}}
+.info-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:24px}
+.info-card{border-radius:var(--radius);padding:16px;text-align:center}
+.info-card .ic-emoji{font-size:1.6rem}
+.info-card .ic-title{font-size:0.75rem;font-weight:700;margin-top:6px}
+.info-card .ic-desc{font-size:0.6rem;color:var(--muted)}
+.error-banner{background:rgba(255,60,60,0.1);border:1px solid rgba(255,60,60,0.3);border-radius:var(--radius);padding:12px 16px;color:#ff6b6b;font-size:0.85rem;margin-top:12px;display:none}
+.step-indicator{display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--muted);margin-top:10px;min-height:20px}
+.dot-step{width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;animation:pulse-anim 1s infinite}
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+<div class="glow-tl"></div>
+<div class="glow-br"></div>
+
+<div class="container">
+  <header>
+    <div class="icons">🍴 <span></span> 🚴</div>
+    <h1>Deli<span>Track</span></h1>
+    <p>AI-powered delivery time prediction using real-time distance &amp; traffic data</p>
+  </header>
+
+  <div class="grid">
+    <div class="glass form-card">
+      <div class="card-header">
+        <div class="icon-box">⚡</div>
+        <h2>Predict Delivery Time</h2>
+      </div>
+      <form id="deliveryForm">
+        <div class="field">
+          <label><span class="dot dot-green"></span> Restaurant Address</label>
+          <input type="text" id="restaurant" placeholder="e.g., Connaught Place, New Delhi" required>
+        </div>
+        <div class="field">
+          <label><span class="dot dot-purple"></span> Delivery Address</label>
+          <input type="text" id="delivery" placeholder="e.g., Lajpat Nagar, New Delhi" required>
+        </div>
+        <div class="field">
+          <div class="range-label">🕐 Preparation Time: <span class="val" id="prepVal">15 min</span></div>
+          <input type="range" id="prepTime" min="5" max="60" value="15">
+          <div class="range-bounds"><span>5 min</span><span>60 min</span></div>
+        </div>
+        <div class="field">
+          <label>🚗 Traffic Condition</label>
+          <div class="traffic-grid">
+            <div class="traffic-btn" data-traffic="low" onclick="setTraffic('low',this)"><span class="emoji">🟢</span>Low</div>
+            <div class="traffic-btn active" data-traffic="medium" onclick="setTraffic('medium',this)"><span class="emoji">🟡</span>Medium</div>
+            <div class="traffic-btn" data-traffic="high" onclick="setTraffic('high',this)"><span class="emoji">🔴</span>High</div>
+          </div>
+        </div>
+        <button type="submit" class="predict-btn" id="predictBtn">⚡ Predict Delivery Time</button>
+        <div class="step-indicator" id="stepIndicator"></div>
+        <div class="error-banner" id="errorBanner"></div>
+      </form>
+    </div>
+
+    <div id="rightCol">
+      <div class="glass placeholder-card" id="placeholder">
+        <div class="float-emoji">🛵</div>
+        <h3>Ready to Predict</h3>
+        <p>Enter restaurant &amp; delivery addresses, set prep time and traffic level, then hit predict!</p>
+        <div class="powered"><span class="pulse"></span> Powered by OpenCage &amp; OSRM</div>
+      </div>
+      <div class="info-row">
+        <div class="glass info-card"><div class="ic-emoji">📍</div><div class="ic-title">Real Distance</div><div class="ic-desc">OpenCage + OSRM</div></div>
+        <div class="glass info-card"><div class="ic-emoji">🤖</div><div class="ic-title">ML Prediction</div><div class="ic-desc">Smart regression</div></div>
+        <div class="glass info-card"><div class="ic-emoji">🚦</div><div class="ic-title">Traffic Aware</div><div class="ic-desc">Live conditions</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== PARTICLES =====
+const c=document.getElementById('particles'),ctx=c.getContext('2d');
+let pts=[];
+function resize(){c.width=innerWidth;c.height=innerHeight}
+resize();addEventListener('resize',resize);
+for(let i=0;i<60;i++)pts.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,s:Math.random()*2+.5,a:Math.random()*.4+.1});
+(function draw(){ctx.clearRect(0,0,c.width,c.height);pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=c.width;if(p.x>c.width)p.x=0;if(p.y<0)p.y=c.height;if(p.y>c.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.s,0,Math.PI*2);ctx.fillStyle=`hsla(155,100%,50%,${p.a})`;ctx.fill()});requestAnimationFrame(draw)})();
+
+// ===== CONFIG — paste your OpenCage key here =====
+const OPENCAGE_API_KEY = 'cbf380091d484ffabd045e0d9007a5f3';
+
+const TRAFFIC_MULT = { low: 1.0, medium: 1.35, high: 1.75 };
+let traffic = 'medium';
+
+const prepSlider = document.getElementById('prepTime');
+const prepVal    = document.getElementById('prepVal');
+prepSlider.oninput = () => prepVal.textContent = prepSlider.value + ' min';
+
+function setTraffic(val, el) {
+  traffic = val;
+  document.querySelectorAll('.traffic-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ===== UI helpers =====
+function setStep(msg) {
+  const el = document.getElementById('stepIndicator');
+  el.innerHTML = msg ? `<span class="dot-step"></span>${msg}` : '';
+}
+function showError(msg) {
+  const b = document.getElementById('errorBanner');
+  b.textContent = '⚠️ ' + msg;
+  b.style.display = 'block';
+}
+function clearError() {
+  const b = document.getElementById('errorBanner');
+  b.style.display = 'none';
+}
+
+// ===== STEP 1: Geocode address → {lat, lng} via OpenCage =====
+async function geocode(address) {
+  const url = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(address)}&key=${OPENCAGE_API_KEY}&limit=1&no_annotations=1`;
+  const res  = await fetch(url);
+
+  if (!res.ok) throw new Error(`OpenCage request failed (HTTP ${res.status}). Check your API key.`);
+
+  const data = await res.json();
+
+  if (data.status && data.status.code !== 200) {
+    throw new Error(`OpenCage error: ${data.status.message}`);
+  }
+  if (!data.results || data.results.length === 0) {
+    throw new Error(`Could not find: "${address}". Try adding a city or country name.`);
+  }
+
+  const { lat, lng } = data.results[0].geometry;
+  return { lat, lng };
+}
+
+// ===== STEP 2: Get driving distance & duration via OSRM (free, no key) =====
+async function getRoute(origin, dest) {
+  // Coordinates must be  lon,lat  (note: longitude first for OSRM)
+  const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;
+  const res  = await fetch(url);
+
+  if (!res.ok) throw new Error(`Routing service unavailable (HTTP ${res.status}). Try again.`);
+
+  const data = await res.json();
+
+  if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+    throw new Error('No driving route found between these two locations.');
+  }
+
+  const route   = data.routes[0];
+  const distKm  = (route.distance / 1000).toFixed(1);   // metres  → km
+  const drivMin = Math.round(route.duration / 60);       // seconds → minutes
+
+  const distText = distKm + ' km';
+  const durText  = drivMin < 60
+    ? drivMin + ' min'
+    : Math.floor(drivMin / 60) + ' hr ' + (drivMin % 60) + ' min';
+
+  return { distText, durText, drivMin };
+}
+
+// ===== FORM SUBMIT =====
+document.getElementById('deliveryForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  clearError();
+  setStep('');
+
+  const restAddr = document.getElementById('restaurant').value.trim();
+  const delAddr  = document.getElementById('delivery').value.trim();
+  const prep     = +prepSlider.value;
+  const btn      = document.getElementById('predictBtn');
+
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span>Calculating…';
+
+  try {
+    setStep('Locating restaurant…');
+    const origin = await geocode(restAddr);
+
+    setStep('Locating delivery address…');
+    const dest = await geocode(delAddr);
+
+    setStep('Calculating driving route…');
+    const { distText, durText, drivMin } = await getRoute(origin, dest);
+
+    // Apply traffic multiplier + prep time + 5 min buffer
+    const adjusted = drivMin * TRAFFIC_MULT[traffic];
+    const total    = Math.round(prep + adjusted + 5);
+
+    setStep('');
+    showResult({
+      time : total,
+      dist : distText,
+      dur  : durText,
+      prep,
+      traf : traffic[0].toUpperCase() + traffic.slice(1),
+    });
+
+  } catch (err) {
+    setStep('');
+    showError(err.message || 'Something went wrong. Please try again.');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '⚡ Predict Delivery Time';
+  }
+});
+
+// ===== RENDER RESULT =====
+function showResult(r) {
+  const ph = document.getElementById('placeholder');
+  if (ph) ph.remove();
+  const old = document.getElementById('resultCard');
+  if (old) old.remove();
+
+  const html = `<div class="glass result-card" id="resultCard">
+    <p class="subtitle">Estimated Delivery Time</p>
+    <span class="big-num">${r.time}</span><span class="unit">min</span>
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-label">📍 Distance</div>
+        <div class="stat-value">${r.dist}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">🗺️ Drive Time</div>
+        <div class="stat-value">${r.dur}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">🕐 Prep Time</div>
+        <div class="stat-value">${r.prep} min</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">🚦 Traffic</div>
+        <div class="stat-value">${r.traf}</div>
+      </div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-labels">
+        <span>🍳 Preparing</span><span>🛵 On the way</span><span>🏠 Delivered</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill"></div></div>
+    </div>
+  </div>`;
+
+  document.getElementById('rightCol').insertAdjacentHTML('afterbegin', html);
+}
+</script>
+</body>
+</html>
