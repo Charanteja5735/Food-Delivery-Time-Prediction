@@ -157,7 +157,7 @@ for(let i=0;i<60;i++)pts.push({x:Math.random()*innerWidth,y:Math.random()*innerH
 (function draw(){ctx.clearRect(0,0,c.width,c.height);pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=c.width;if(p.x>c.width)p.x=0;if(p.y<0)p.y=c.height;if(p.y>c.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.s,0,Math.PI*2);ctx.fillStyle=`hsla(155,100%,50%,${p.a})`;ctx.fill()});requestAnimationFrame(draw)})();
 
 // ===== CONFIG — paste your OpenCage key here =====
-const OPENCAGE_API_KEY = 'cbf380091d484ffabd045e0d9007a5f3';
+const OPENCAGE_API_KEY = '02775e197b97446f81fe9e979cd995a5';
 
 const TRAFFIC_MULT = { low: 1.0, medium: 1.35, high: 1.75 };
 let traffic = 'medium';
